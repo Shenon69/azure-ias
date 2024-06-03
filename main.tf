@@ -138,6 +138,58 @@ resource "azurerm_availability_set" "ias-aset" {
 
 }
 
+resource "azurerm_storage_account" "ias-storage-account" {
+  name                            = "iasstorraccount"
+  resource_group_name             = local.resource_group_name
+  location                        = local.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  allow_nested_items_to_be_public = true
+}
+
+resource "azurerm_storage_container" "ias-storage-container" {
+  name                  = "iasstoragecontainer"
+  storage_account_name  = azurerm_storage_account.ias-storage-account.name
+  container_access_type = "private"
+
+  depends_on = [
+    azurerm_storage_account.ias-storage-account
+  ]
+}
+
+resource "azurerm_storage_blob" "IIS-config" {
+  name                   = "IIS-config.ps1"
+  storage_account_name   = azurerm_storage_account.ias-storage-account.name
+  storage_container_name = azurerm_storage_container.ias-storage-container.name
+  type                   = "Block"
+  source                 = "IIS_config.ps1"
+
+  depends_on = [
+    azurerm_storage_container.ias-storage-container
+  ]
+}
+
+resource "azurerm_virtual_machine_extension" "azure-ias-vm-ext" {
+  name                 = "IIS-config"
+  virtual_machine_id   = azurerm_windows_virtual_machine.ias-vm.id
+  publisher            = "Microsoft.Compute"
+  type                 = "CustomScriptExtension"
+  type_handler_version = "1.10"
+
+  settings = <<SETTINGS
+ {
+  "fileUris": ["https://iasstorraccount.blob.core.windows.net/iasstoragecontainer/IIS-config.ps1?sp=rw&st=2024-06-03T13:48:02Z&se=2024-06-03T21:48:02Z&sv=2022-11-02&sr=b&sig=sd07WedPR7c%2BMomz6X2ekXLcP1p2JwNjtI%2FeJFs7ohk%3D"],
+  "commandToExecute": "powershell -ExecutionPolicy Unrestricted -file IIS-config.ps1"
+ }
+SETTINGS
+
+  depends_on = [
+    azurerm_storage_account.ias-storage-account,
+    azurerm_storage_blob.IIS-config
+  ]
+
+}
+
 
 
 
