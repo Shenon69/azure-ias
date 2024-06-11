@@ -190,6 +190,32 @@ SETTINGS
 
 }
 
+resource "azurerm_network_security_group" "ias-nsg" {
+  name                = "ias-nsg"
+  location            = local.location
+  resource_group_name = local.resource_group_name
+
+  security_rule {
+    name                       = "inbound80"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "nsg-association" {
+  subnet_id                 = azurerm_subnet.subnetA.id
+  network_security_group_id = azurerm_network_security_group.ias-nsg.id
+
+  depends_on = [
+    azurerm_network_security_group.ias-nsg
+  ]
+}
 
 
 
