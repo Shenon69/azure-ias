@@ -1,18 +1,20 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "3.106.1"
-    }
-  }
+provider "azurerm" {
+  features {}
+
+  subscription_id = var.subscription_id
+  client_id       = var.client_id
+  client_secret   = var.client_secret
+  tenant_id       = var.tenant_id
 }
 
-provider "azurerm" {
-  subscription_id = "4eb29f76-86f1-42cb-9822-2de9395f3625"
-  client_id       = "7d4e9a40-f4b3-4b0a-9265-5e66bd8b7cc7"
-  client_secret   = "Tvy8Q~PLGvaOt9td2P6xjt6NU.BCX7aaGjAAydg-"
-  tenant_id       = "84c31ca0-ac3b-4eae-ad11-519d80233e6f"
-  features {}
+terraform {
+  cloud {
+    organization = "trishan"
+
+    workspaces {
+      name = "ias-azure"
+    }
+  }
 }
 
 locals {
@@ -102,6 +104,10 @@ resource "azurerm_public_ip" "ias-public-ip" {
   resource_group_name = local.resource_group_name
   location            = local.location
   allocation_method   = "Static"
+
+  depends_on = [
+    local.resource_group_name
+  ]
 }
 
 resource "azurerm_managed_disk" "azure-ias-disk" {
@@ -111,6 +117,10 @@ resource "azurerm_managed_disk" "azure-ias-disk" {
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
   disk_size_gb         = 16
+
+  depends_on = [
+    local.resource_group_name
+  ]
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "ias-vm-disk1" {
@@ -145,6 +155,10 @@ resource "azurerm_storage_account" "ias-storage-account" {
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
   allow_nested_items_to_be_public = true
+
+  depends_on = [
+    local.resource_group_name
+  ]
 }
 
 resource "azurerm_storage_container" "ias-storage-container" {
@@ -167,27 +181,6 @@ resource "azurerm_storage_blob" "IIS-config" {
   depends_on = [
     azurerm_storage_container.ias-storage-container
   ]
-}
-
-resource "azurerm_virtual_machine_extension" "azure-ias-vm-ext" {
-  name                 = "IIS-config"
-  virtual_machine_id   = azurerm_windows_virtual_machine.ias-vm.id
-  publisher            = "Microsoft.Compute"
-  type                 = "CustomScriptExtension"
-  type_handler_version = "1.10"
-
-  settings = <<SETTINGS
- {
-  "fileUris": ["https://iasstorraccount.blob.core.windows.net/iasstoragecontainer/IIS-config.ps1?sp=rw&st=2024-06-03T13:48:02Z&se=2024-06-03T21:48:02Z&sv=2022-11-02&sr=b&sig=sd07WedPR7c%2BMomz6X2ekXLcP1p2JwNjtI%2FeJFs7ohk%3D"],
-  "commandToExecute": "powershell -ExecutionPolicy Unrestricted -file IIS-config.ps1"
- }
-SETTINGS
-
-  depends_on = [
-    azurerm_storage_account.ias-storage-account,
-    azurerm_storage_blob.IIS-config
-  ]
-
 }
 
 resource "azurerm_network_security_group" "ias-nsg" {
@@ -213,6 +206,7 @@ resource "azurerm_subnet_network_security_group_association" "nsg-association" {
   network_security_group_id = azurerm_network_security_group.ias-nsg.id
 
   depends_on = [
+    local.resource_group_name,
     azurerm_network_security_group.ias-nsg
   ]
 }
