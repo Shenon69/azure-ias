@@ -148,41 +148,6 @@ resource "azurerm_availability_set" "ias-aset" {
 
 }
 
-resource "azurerm_storage_account" "ias-storage-account" {
-  name                            = "iasstorraccount"
-  resource_group_name             = local.resource_group_name
-  location                        = local.location
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  allow_nested_items_to_be_public = true
-
-  depends_on = [
-    local.resource_group_name
-  ]
-}
-
-resource "azurerm_storage_container" "ias-storage-container" {
-  name                  = "iasstoragecontainer"
-  storage_account_name  = azurerm_storage_account.ias-storage-account.name
-  container_access_type = "private"
-
-  depends_on = [
-    azurerm_storage_account.ias-storage-account
-  ]
-}
-
-resource "azurerm_storage_blob" "IIS-config" {
-  name                   = "IIS-config.ps1"
-  storage_account_name   = azurerm_storage_account.ias-storage-account.name
-  storage_container_name = azurerm_storage_container.ias-storage-container.name
-  type                   = "Block"
-  source                 = "IIS_config.ps1"
-
-  depends_on = [
-    azurerm_storage_container.ias-storage-container
-  ]
-}
-
 resource "azurerm_network_security_group" "ias-nsg" {
   name                = "ias-nsg"
   location            = local.location
@@ -209,6 +174,13 @@ resource "azurerm_subnet_network_security_group_association" "nsg-association" {
     local.resource_group_name,
     azurerm_network_security_group.ias-nsg
   ]
+}
+
+module "storage" {
+  source              = "./storage"
+  app_name            = var.app_name
+  location            = local.location
+  resource_group_name = local.resource_group_name
 }
 
 
